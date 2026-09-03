@@ -7,7 +7,7 @@ async function testDemoMode() {
     console.log('🧪 Testing M-Pesa Demo Mode...\n');
 
     // Using a fake token for testing (in real scenario, this would be a valid Supabase token)
-    const fakeToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.fake.token';
+    const fakeToken = 'fake-token';
 
     const payload = {
       product: 'books',

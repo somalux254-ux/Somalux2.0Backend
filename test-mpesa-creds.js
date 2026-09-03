@@ -1,8 +1,11 @@
 // Test M-Pesa Credentials
 import axios from 'axios';
+import 'dotenv/config';
 
-const CONSUMER_KEY = 'JmTIKawu0Jvur2YA7iFnSmS2ZO15ObCJSGtXHNb1WSv6F83U';
-const CONSUMER_SECRET = 'ILRULsnEKAhzzZXBwmyJsM0FjiGeHjm1SP7BQKFTXAZSgK9bBcCnfCZTJKnblih4';
+const CONSUMER_KEY = process.env.MPESA_CONSUMER_KEY;
+const CONSUMER_SECRET = process.env.MPESA_CONSUMER_SECRET;
+
+if (!CONSUMER_KEY || !CONSUMER_SECRET) throw new Error('MPESA_CONSUMER_KEY and MPESA_CONSUMER_SECRET are required.');
 
 async function testCredentials() {
   try {
