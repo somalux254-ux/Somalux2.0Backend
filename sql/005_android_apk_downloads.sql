@@ -10,3 +10,26 @@ create index if not exists android_apk_downloads_downloaded_at_idx
   on public.android_apk_downloads (downloaded_at desc);
 
 alter table public.android_apk_downloads enable row level security;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'android_apk_downloads'
+      and policyname = 'android_apk_downloads_admin_read'
+  ) then
+    create policy "android_apk_downloads_admin_read"
+    on public.android_apk_downloads
+    for select
+    using (
+      exists (
+        select 1
+        from public.profiles
+        where profiles.id = auth.uid()
+          and profiles.role in ('admin', 'moderator')
+      )
+    );
+  end if;
+end $$;
