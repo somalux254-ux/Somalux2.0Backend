@@ -207,6 +207,20 @@ router.post('/notifications/send', async (req, res) => {
       });
     }
 
+    recipients = recipients.filter((recipient) =>
+      typeof recipient.email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient.email.trim())
+    ).map((recipient) => ({
+      ...recipient,
+      email: recipient.email.trim(),
+    }));
+
+    if (recipients.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No valid recipient email addresses found',
+      });
+    }
+
     console.log(`📧 [NOTIFICATIONS] Found ${recipients.length} recipients`);
 
     // Create notification record using admin client (bypasses RLS)
@@ -243,16 +257,18 @@ router.post('/notifications/send', async (req, res) => {
       body: message,
     });
 
-    // Send emails (in background, don't wait)
-    sendEmailsInBackground(notificationId, title, emailHtml, recipients).catch((err) => {
-      console.error('❌ [NOTIFICATIONS] Background email sending failed:', err);
-    });
+    // Wait for delivery so the response reports the actual SMTP result.
+    const delivery = await sendEmailsInBackground(notificationId, title, message, emailHtml, recipients);
 
     return res.json({
-      success: true,
-      message: `Email sending initiated. Notification ID: ${notificationId}`,
+      success: delivery.sentCount > 0,
+      message: delivery.sentCount > 0
+        ? `Email sent to ${delivery.sentCount} recipient(s).`
+        : 'Email delivery failed for all recipients.',
       notificationId,
       recipientCount: recipients.length,
+      sentCount: delivery.sentCount,
+      failedCount: delivery.failedCount,
     });
   } catch (error) {
     console.error('❌ [NOTIFICATIONS] Error sending notifications:', error);
@@ -266,7 +282,7 @@ router.post('/notifications/send', async (req, res) => {
 /**
  * Background function to send emails and track delivery
  */
-async function sendEmailsInBackground(notificationId, subject, htmlContent, recipients) {
+async function sendEmailsInBackground(notificationId, subject, message, htmlContent, recipients) {
   let sentCount = 0;
   let failedCount = 0;
 
@@ -274,7 +290,7 @@ async function sendEmailsInBackground(notificationId, subject, htmlContent, reci
   const adminClient = getSupabaseAdminClient() || client;
   if (!client) {
     console.error('❌ [NOTIFICATIONS] Database not configured for background send');
-    return;
+    return { sentCount, failedCount: recipients.length };
   }
 
   console.log(`📧 [NOTIFICATIONS] Starting background send for ${recipients.length} recipients...`);
@@ -301,6 +317,7 @@ async function sendEmailsInBackground(notificationId, subject, htmlContent, reci
       await sendEmail({
         to: recipient.email,
         subject,
+        text: message,
         html: personalizedHtml,
       });
 
@@ -355,6 +372,7 @@ async function sendEmailsInBackground(notificationId, subject, htmlContent, reci
   }
 
   console.log(`✅ [NOTIFICATIONS] Background send complete: ${sentCount} sent, ${failedCount} failed`);
+  return { sentCount, failedCount };
 }
 
 /**

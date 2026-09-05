@@ -29,6 +29,7 @@ router.get('/og', (req, res) => {
     <title>${escapeHtml(title)}</title>
     <meta name="description" content="${escapeHtml(description)}">
     <meta property="og:type" content="book">
+    <meta property="og:site_name" content="SomaLux">
     <meta property="og:title" content="${escapeHtml(title)}">
     <meta property="og:description" content="${escapeHtml(description)}">
     <meta property="og:image" content="${escapeHtml(image)}">
