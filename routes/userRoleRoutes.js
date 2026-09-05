@@ -75,9 +75,14 @@ router.patch('/api/elib/users/:id/tier', requireAdmin, async (req, res) => {
     return res.status(400).json({ ok: false, error: `Invalid subscription tier: ${tier || 'missing'}` });
   }
 
+  const now = new Date().toISOString();
   const { data, error } = await global.supabaseAdmin
     .from('profiles')
-    .update({ subscription_tier: tier, updated_at: new Date().toISOString() })
+    .update({
+      subscription_tier: tier,
+      subscription_started_at: now,
+      updated_at: now,
+    })
     .eq('id', req.params.id)
     .select('id, email, display_name, full_name, role, subscription_tier, is_active')
     .maybeSingle();

@@ -16,6 +16,7 @@ import shareRoutes from './routes/shareRoutes.js';
 import bookUploadRoutes from './routes/bookUploadRoutes.js';
 import submissionRoutes from './routes/submissionRoutes.js';
 import userRoleRoutes from './routes/userRoleRoutes.js';
+import androidApkRoutes from './routes/androidApkRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -57,6 +58,7 @@ app.use('/api', shareRoutes);
 app.use(bookUploadRoutes);
 app.use(submissionRoutes);
 app.use(userRoleRoutes);
+app.use(androidApkRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({

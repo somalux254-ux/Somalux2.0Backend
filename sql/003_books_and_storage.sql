@@ -238,6 +238,32 @@ begin
 end;
 $$;
 
+-- User avatars: authenticated users may manage only files in their own folder.
+drop policy if exists "Allow authenticated upload to user-avatars" on storage.objects;
+drop policy if exists "Authenticated users can upload to user-avatars" on storage.objects;
+drop policy if exists "Allow public read user-avatars" on storage.objects;
+drop policy if exists "Public can read user-avatars" on storage.objects;
+drop policy if exists "Allow users to delete their own avatars" on storage.objects;
+drop policy if exists "Authenticated users can delete from user-avatars" on storage.objects;
+
+create policy "Authenticated users can upload own avatars"
+on storage.objects for insert to authenticated
+with check (
+  bucket_id = 'user-avatars'
+  and (storage.foldername(name))[1] = (select auth.uid()::text)
+);
+
+create policy "Public can read user avatars"
+on storage.objects for select
+using (bucket_id = 'user-avatars');
+
+create policy "Authenticated users can delete own avatars"
+on storage.objects for delete to authenticated
+using (
+  bucket_id = 'user-avatars'
+  and (storage.foldername(name))[1] = (select auth.uid()::text)
+);
+
 create or replace function public.increment_book_downloads(p_book_id uuid)
 returns bigint
 language plpgsql

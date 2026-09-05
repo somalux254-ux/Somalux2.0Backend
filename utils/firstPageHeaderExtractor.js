@@ -3,16 +3,17 @@
  * Extract ONLY: unitName (letters), unitCode (number), year
  */
 
-import * as pdfParseModule from 'pdf-parse';
-const pdfParse = pdfParseModule.default || pdfParseModule;
+import { PDFParse } from 'pdf-parse';
 
 /**
  * Extract unit name, code, and year from PDF first page
  * Returns: { unitCode, unitName, year }
  */
 export async function extractFirstPageAcademicHeader(pdfBuffer) {
+  let parser;
   try {
-    const pdfData = await pdfParse(pdfBuffer);
+    parser = new PDFParse({ data: new Uint8Array(pdfBuffer) });
+    const pdfData = await parser.getText({ partial: [1] });
     const text = pdfData.text || '';
 
     if (!text || text.length < 50) {
@@ -50,6 +51,8 @@ export async function extractFirstPageAcademicHeader(pdfBuffer) {
   } catch (error) {
     console.error('❌ Extraction error:', error.message);
     return { unitCode: null, unitName: null, year: null };
+  } finally {
+    await parser?.destroy().catch(() => {});
   }
 }
 

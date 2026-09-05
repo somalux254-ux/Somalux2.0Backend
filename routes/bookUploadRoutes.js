@@ -5,6 +5,10 @@ import { randomUUID } from 'crypto';
 const router = express.Router();
 const MAX_BOOK_SIZE = 50 * 1024 * 1024;
 const MAX_COVER_SIZE = 10 * 1024 * 1024;
+const signedUrlCaches = {
+  books: new Map(),
+  pastPapers: new Map(),
+};
 
 function getBearerToken(req) {
   const header = req.headers.authorization || '';
@@ -47,6 +51,103 @@ function safeFileName(value, fallback) {
 function publicUrl(bucket, storagePath) {
   return global.supabaseAdmin.storage.from(bucket).getPublicUrl(storagePath).data.publicUrl;
 }
+
+function getStoragePath(fileUrl, bucket) {
+  if (!fileUrl) return null;
+  if (!/^https?:\/\//i.test(fileUrl)) {
+    return fileUrl.replace(/^\/+/, '').replace(new RegExp(`^${bucket}/`), '');
+  }
+
+  const marker = `/storage/v1/object/public/${bucket}/`;
+  const markerIndex = fileUrl.indexOf(marker);
+  return markerIndex === -1 ? null : decodeURIComponent(fileUrl.slice(markerIndex + marker.length));
+}
+
+router.get('/api/elib/books/:bookId/signed-url', requireUser, async (req, res) => {
+  const { bookId } = req.params;
+  const startedAt = Date.now();
+  console.log('[signed-url] Request started', { bookId, userId: req.user?.id });
+
+  const cached = signedUrlCaches.books.get(bookId);
+  if (cached?.expiresAt > Date.now()) {
+    console.log('[signed-url] Book cache hit', { bookId, durationMs: Date.now() - startedAt });
+    return res.json({ ok: true, signedUrl: cached.signedUrl, expiresIn: Math.ceil((cached.expiresAt - Date.now()) / 1000) });
+  }
+
+  const { data: book, error: bookError } = await global.supabaseAdmin
+    .from('books')
+    .select('file_url')
+    .eq('id', bookId)
+    .maybeSingle();
+
+  if (bookError) {
+    console.error('[signed-url] Book lookup failed', { bookId, error: bookError.message });
+    return res.status(502).json({ ok: false, error: bookError.message });
+  }
+  if (!book) {
+    console.warn('[signed-url] Book not found', { bookId });
+    return res.status(404).json({ ok: false, error: 'Book not found' });
+  }
+
+  const storagePath = getStoragePath(book.file_url, 'elib-books');
+  if (!storagePath) {
+    console.warn('[signed-url] Book has no usable storage path', { bookId });
+    return res.status(404).json({ ok: false, error: 'Book file is not available' });
+  }
+
+  const { data, error } = await global.supabaseAdmin.storage
+    .from('elib-books')
+    .createSignedUrl(storagePath, 600);
+
+  if (error || !data?.signedUrl) {
+    console.error('[signed-url] Storage URL creation failed', { bookId, error: error?.message });
+    return res.status(502).json({ ok: false, error: error?.message || 'Could not create signed URL' });
+  }
+
+  signedUrlCaches.books.set(bookId, { signedUrl: data.signedUrl, expiresAt: Date.now() + 570000 });
+  console.log('[signed-url] Request completed', { bookId, durationMs: Date.now() - startedAt, expiresIn: 600 });
+  return res.json({ ok: true, signedUrl: data.signedUrl, expiresIn: 600 });
+});
+
+router.get('/api/elib/pastpapers/:paperId/signed-url', requireUser, async (req, res) => {
+  const { paperId } = req.params;
+  const startedAt = Date.now();
+  console.log('[signed-url] Past paper request started', { paperId, userId: req.user?.id });
+
+  const cached = signedUrlCaches.pastPapers.get(paperId);
+  if (cached?.expiresAt > Date.now()) {
+    console.log('[signed-url] Past paper cache hit', { paperId, durationMs: Date.now() - startedAt });
+    return res.json({ ok: true, signedUrl: cached.signedUrl, expiresIn: Math.ceil((cached.expiresAt - Date.now()) / 1000) });
+  }
+
+  const { data: paper, error: paperError } = await global.supabaseAdmin
+    .from('past_papers')
+    .select('file_path, file_url')
+    .eq('id', paperId)
+    .maybeSingle();
+
+  if (paperError) {
+    console.error('[signed-url] Past paper lookup failed', { paperId, error: paperError.message });
+    return res.status(502).json({ ok: false, error: paperError.message });
+  }
+  if (!paper) return res.status(404).json({ ok: false, error: 'Past paper not found' });
+
+  const storagePath = getStoragePath(paper.file_path || paper.file_url, 'past-papers');
+  if (!storagePath) return res.status(404).json({ ok: false, error: 'Past paper file is not available' });
+
+  const { data, error } = await global.supabaseAdmin.storage
+    .from('past-papers')
+    .createSignedUrl(storagePath, 600);
+
+  if (error || !data?.signedUrl) {
+    console.error('[signed-url] Past paper URL creation failed', { paperId, error: error?.message });
+    return res.status(502).json({ ok: false, error: error?.message || 'Could not create signed URL' });
+  }
+
+  signedUrlCaches.pastPapers.set(paperId, { signedUrl: data.signedUrl, expiresAt: Date.now() + 570000 });
+  console.log('[signed-url] Past paper request completed', { paperId, durationMs: Date.now() - startedAt, expiresIn: 600 });
+  return res.json({ ok: true, signedUrl: data.signedUrl, expiresIn: 600 });
+});
 
 router.post('/api/elib/books/upload-file', requireUser, async (req, res) => {
   const buffer = decodeBase64(req.body?.fileBase64);

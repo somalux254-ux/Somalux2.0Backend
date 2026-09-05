@@ -14,7 +14,10 @@ export async function extractTextFromPDFPageDirect(pdfBuffer, pageNum = 1) {
     console.log(`📖 [PDF.js] Extracting text from page ${pageNum}...`);
     
     // Load PDF document
-    const pdfDoc = await pdfjs.getDocument({ data: pdfBuffer }).promise;
+    const pdfDoc = await pdfjs.getDocument({
+      data: new Uint8Array(pdfBuffer),
+      disableWorker: true
+    }).promise;
     
     if (pageNum > pdfDoc.numPages) {
       console.warn(`⚠️ [PDF.js] Page ${pageNum} exceeds document pages (${pdfDoc.numPages})`);
@@ -51,7 +54,10 @@ export async function extractTextFromPDFPage(pdfBuffer, pageNum = 1) {
     console.log(`🔍 [OCR] Extracting text from page ${pageNum}...`);
     
     // Load PDF document
-    const pdfDoc = await pdfjs.getDocument({ data: pdfBuffer }).promise;
+    const pdfDoc = await pdfjs.getDocument({
+      data: new Uint8Array(pdfBuffer),
+      disableWorker: true
+    }).promise;
     
     if (pageNum > pdfDoc.numPages) {
       console.warn(`⚠️ [OCR] Page ${pageNum} exceeds document pages (${pdfDoc.numPages})`);
@@ -331,7 +337,10 @@ export async function extractPastPaperDetailsFromScannedPDF(pdfBuffer, fileName 
     console.log(`\n📄 [PAST-PAPER-EXTRACT] Processing: ${fileName || 'unknown'}`);
     
     // Load PDF to check page count
-    const pdfDoc = await pdfjs.getDocument({ data: pdfBuffer }).promise;
+    const pdfDoc = await pdfjs.getDocument({
+      data: new Uint8Array(pdfBuffer),
+      disableWorker: true
+    }).promise;
     const pageCount = pdfDoc.numPages;
     console.log(`📖 [PAST-PAPER-EXTRACT] PDF has ${pageCount} pages`);
 
