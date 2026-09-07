@@ -17,6 +17,8 @@ import bookUploadRoutes from './routes/bookUploadRoutes.js';
 import submissionRoutes from './routes/submissionRoutes.js';
 import userRoleRoutes from './routes/userRoleRoutes.js';
 import androidApkRoutes from './routes/androidApkRoutes.js';
+import officialUniversityRouter from './routes/officialUniversity.js';
+import universityRouter from './routes/University.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -59,6 +61,8 @@ app.use(bookUploadRoutes);
 app.use(submissionRoutes);
 app.use(userRoleRoutes);
 app.use(androidApkRoutes);
+app.use(officialUniversityRouter);
+app.use('/api/university', universityRouter);
 
 app.get('/api/health', (req, res) => {
   res.json({

@@ -52,6 +52,35 @@ with check (public.is_content_admin() or uploaded_by::text = auth.uid()::text);
 create policy universities_admin_delete on public.universities
 for delete using (public.is_content_admin() or uploaded_by::text = auth.uid()::text);
 
+create table if not exists public.university_images (
+  id uuid primary key default gen_random_uuid(),
+  university_id uuid not null references public.universities(id) on delete cascade,
+  image_url text not null,
+  caption text,
+  is_primary boolean not null default false,
+  display_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists university_images_university_id_idx
+  on public.university_images(university_id, display_order);
+
+alter table public.university_images enable row level security;
+drop policy if exists university_images_public_read on public.university_images;
+drop policy if exists university_images_admin_insert on public.university_images;
+drop policy if exists university_images_admin_update on public.university_images;
+drop policy if exists university_images_admin_delete on public.university_images;
+
+create policy university_images_public_read on public.university_images
+for select using (true);
+create policy university_images_admin_insert on public.university_images
+for insert with check (public.is_content_admin());
+create policy university_images_admin_update on public.university_images
+for update using (public.is_content_admin())
+with check (public.is_content_admin());
+create policy university_images_admin_delete on public.university_images
+for delete using (public.is_content_admin());
+
 create table if not exists public.past_papers (
   id uuid primary key default gen_random_uuid(),
   title text not null default '',
@@ -200,6 +229,34 @@ with check (
 create policy past_papers_storage_delete on storage.objects
 for delete using (
   bucket_id = 'past-papers'
+  and public.is_content_admin()
+);
+
+-- Storage policies for university cover images used by the admin university grid.
+drop policy if exists universities_storage_insert on storage.objects;
+drop policy if exists universities_storage_select on storage.objects;
+drop policy if exists universities_storage_update on storage.objects;
+drop policy if exists universities_storage_delete on storage.objects;
+
+create policy universities_storage_insert on storage.objects
+for insert with check (
+  bucket_id = 'university-covers'
+  and public.is_content_admin()
+);
+create policy universities_storage_select on storage.objects
+for select using (bucket_id = 'university-covers');
+create policy universities_storage_update on storage.objects
+for update using (
+  bucket_id = 'university-covers'
+  and public.is_content_admin()
+)
+with check (
+  bucket_id = 'university-covers'
+  and public.is_content_admin()
+);
+create policy universities_storage_delete on storage.objects
+for delete using (
+  bucket_id = 'university-covers'
   and public.is_content_admin()
 );
 
