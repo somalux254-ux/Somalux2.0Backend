@@ -10,17 +10,27 @@ async function requireContentAdmin(req, res, next) {
   const authorization = req.headers.authorization || '';
   const token = authorization.startsWith('Bearer ') ? authorization.slice(7) : null;
   let authenticatedUser = null;
+
   if (token) {
-    const { data } = await global.supabaseAdmin.auth.getUser(token);
-    authenticatedUser = data?.user || null;
+    const { data, error } = await global.supabaseAdmin.auth.getUser(token);
+    if (error) {
+      console.warn('[requireContentAdmin] Invalid bearer token:', error.message || error);
+    } else {
+      authenticatedUser = data?.user || null;
+    }
   }
 
   const actorId = authenticatedUser?.id || req.headers['x-actor-id'];
-  const actorEmail = req.headers['x-actor-email'];
+  const actorEmail = authenticatedUser?.email || req.headers['x-actor-email'];
+
+  if (!actorId && !actorEmail) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
   let query = global.supabaseAdmin
     .from('profiles')
     .select('id, role, is_active')
-    .in('role', ['admin', 'moderator'])
+    .in('role', ['admin', 'editor', 'moderator'])
     .eq('is_active', true)
     .limit(1);
 
